@@ -12,22 +12,24 @@ find_package(ros2_unitree_legged_msgs REQUIRED)
 message("-- CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "x86_64.*")
   set(ARCH amd64)
+  link_directories(${CMAKE_SOURCE_DIR}/unitree_legged_sdk/lib/cpp/amd64)
 else()
   set(ARCH arm64)
+  link_directories(${CMAKE_SOURCE_DIR}/unitree_legged_sdk/lib/cpp/arm64)
 endif()
-set(EXTRA_LIBS -pthread libunitree_legged_sdk_${ARCH}.so lcm)
+
+set(EXTRA_LIBS -pthread libunitree_legged_sdk.so lcm)
 
 
 set(CMAKE_CXX_FLAGS "-O3")
 
 include_directories(
     include
-    ${CMAKE_SOURCE_DIR}/unitree_legged_sdk-master/include
+    ${CMAKE_SOURCE_DIR}/unitree_legged_sdk/include
 )
 
 
 
-link_directories(${CMAKE_SOURCE_DIR}/unitree_legged_sdk-master/lib)
 
 add_executable(ros2_udp src/ros2_udp.cpp)
 target_link_libraries(ros2_udp ${EXTRA_LIBS})
