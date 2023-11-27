@@ -85,7 +85,7 @@ void highCmdCallback(const ros2_unitree_legged_msgs::msg::HighCmd::SharedPtr msg
 int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
-    auto node = rclcpp::Node::make_shared("node_ros2_udp");
+    auto node = rclcpp::Node::make_shared("b1_highlevel_node");
 
     timer = node->create_wall_timer(std::chrono::milliseconds(2), timerCallback);
     printf("high level runing!\n");
