@@ -6,22 +6,58 @@
 #include "unitree_legged_sdk/unitree_legged_sdk.h"
 #include "convert.h"
 
+#include "sensor_msgs/msg/imu.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
+#include "sensor_msgs/msg/temperature.hpp"
+#include "sensor_msgs/msg/battery_state.hpp"
+
 using namespace UNITREE_LEGGED_SDK;
-UDP *low_udp;
 UDP *high_udp;
-LowCmd low_cmd = {0};
-LowState low_state = {0};
 HighCmd high_cmd = {0};
 HighState high_state = {0};
 
+
+
+
 rclcpp::Subscription<ros2_unitree_legged_msgs::msg::HighCmd>::SharedPtr sub_high;
-rclcpp::Subscription<ros2_unitree_legged_msgs::msg::LowCmd>::SharedPtr sub_low;
 
 rclcpp::Publisher<ros2_unitree_legged_msgs::msg::HighState>::SharedPtr pub_high;
-rclcpp::Publisher<ros2_unitree_legged_msgs::msg::LowState>::SharedPtr pub_low;
+rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr pub_imu;
 
+rclcpp::TimerBase::SharedPtr timer;
 long high_count = 0;
 long low_count = 0;
+
+void timerCallback()
+{
+    high_udp->SetSend(high_cmd);
+    high_udp->Send();
+    ros2_unitree_legged_msgs::msg::HighState high_state_ros;
+    high_udp->Recv();
+    high_udp->GetRecv(high_state);
+    high_state_ros = state2rosMsg(high_state);
+    sensor_msgs::msg::Imu imu;
+    sensor_msgs::msg::JointState joint_state;
+
+    // Load the IMU message
+    imu.header.stamp=rclcpp::Clock().now();
+    imu.header.frame_id = "b1_imu";
+    imu.orientation.w = high_state.imu.quaternion[0];
+    imu.orientation.x = high_state.imu.quaternion[1];
+    imu.orientation.y = high_state.imu.quaternion[2];
+    imu.orientation.z = high_state.imu.quaternion[3];
+    imu.linear_acceleration.x = high_state.imu.accelerometer[0];
+    imu.linear_acceleration.y = high_state.imu.accelerometer[1];
+    imu.linear_acceleration.z = high_state.imu.accelerometer[2];
+    imu.angular_velocity.x = high_state.imu.gyroscope[0];
+    imu.angular_velocity.y = high_state.imu.gyroscope[1];
+    imu.angular_velocity.z = high_state.imu.gyroscope[2];
+
+
+    pub_imu->publish(imu);
+
+    pub_high->publish(high_state_ros);
+}
 
 void highCmdCallback(const ros2_unitree_legged_msgs::msg::HighCmd::SharedPtr msg)
 {
@@ -44,61 +80,25 @@ void highCmdCallback(const ros2_unitree_legged_msgs::msg::HighCmd::SharedPtr msg
     printf("highCmdCallback ending !\t%ld\n\n", ::high_count++);
 }
 
-void lowCmdCallback(const ros2_unitree_legged_msgs::msg::LowCmd::SharedPtr msg)
-{
 
-    printf("lowCmdCallback is running !\t%ld\n", low_count);
-
-    low_cmd = rosMsg2Cmd(msg);
-
-    low_udp->SetSend(low_cmd);
-    low_udp->Send();
-
-    ros2_unitree_legged_msgs::msg::LowState low_state_ros;
-
-    low_udp->Recv();
-    low_udp->GetRecv(low_state);
-
-    low_state_ros = state2rosMsg(low_state);
-
-    pub_low->publish(low_state_ros);
-
-    printf("lowCmdCallback ending!\t%ld\n\n", ::low_count++);
-}
 
 int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
-
     auto node = rclcpp::Node::make_shared("node_ros2_udp");
 
-    if (strcasecmp(argv[1], "LOWLEVEL") == 0)
-    {
-        printf("low level runing!\n");
-        low_udp = new UDP(LOWLEVEL, 8090, "192.168.123.10", 8007);
-        low_udp->InitCmdData(low_cmd);
-        pub_low = node->create_publisher<ros2_unitree_legged_msgs::msg::LowState>("low_state", 1);
-        sub_low = node->create_subscription<ros2_unitree_legged_msgs::msg::LowCmd>("low_cmd", 1, lowCmdCallback);
+    timer = node->create_wall_timer(std::chrono::milliseconds(2), timerCallback);
+    printf("high level runing!\n");
 
-        rclcpp::spin(node);
-    }
-    else if (strcasecmp(argv[1], "HIGHLEVEL") == 0)
-    {
-        printf("high level runing!\n");
-        high_udp = new UDP(HIGHLEVEL, 8090, "192.168.123.220", 8082);
-        high_udp->InitCmdData(high_cmd);
-        pub_high = node->create_publisher<ros2_unitree_legged_msgs::msg::HighState>("high_state", 1);
-        sub_high = node->create_subscription<ros2_unitree_legged_msgs::msg::HighCmd>("high_cmd", 1, highCmdCallback);
+    high_udp = new UDP(HIGHLEVEL, 8090, "192.168.123.220", 8082);
+    high_udp->InitCmdData(high_cmd);
+    pub_high = node->create_publisher<ros2_unitree_legged_msgs::msg::HighState>("/B1/high_state", 1);
+    pub_imu  = node->create_publisher<sensor_msgs::msg::Imu>("/B1/imu", 1);
+    
+    sub_high = node->create_subscription<ros2_unitree_legged_msgs::msg::HighCmd>("/B1/high_cmd", 1, highCmdCallback);
 
-        rclcpp::spin(node);
-    }
-    else
-    {
-        std::cout << "Control level name error! Can only be highlevel or lowlevel(not case sensitive)" << std::endl;
-        exit(-1);
-    }
-
+    
+    rclcpp::spin(node);
     rclcpp::shutdown();
-
     return 0;
 }
