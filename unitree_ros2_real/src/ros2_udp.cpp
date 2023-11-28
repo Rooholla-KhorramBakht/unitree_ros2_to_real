@@ -23,6 +23,7 @@ rclcpp::Subscription<ros2_unitree_legged_msgs::msg::HighCmd>::SharedPtr sub_high
 
 rclcpp::Publisher<ros2_unitree_legged_msgs::msg::HighState>::SharedPtr pub_high;
 rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr pub_imu;
+rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_joint;
 
 rclcpp::TimerBase::SharedPtr timer;
 long high_count = 0;
@@ -52,10 +53,34 @@ void timerCallback()
     imu.angular_velocity.x = high_state.imu.gyroscope[0];
     imu.angular_velocity.y = high_state.imu.gyroscope[1];
     imu.angular_velocity.z = high_state.imu.gyroscope[2];
+    // Load the jointstate messages
+    joint_state.header.stamp = rclcpp::Clock().now();
+    joint_state.header.frame_id = "b1_imu";
+    joint_state.name.push_back("FR_hip_joint");
+    joint_state.name.push_back("FR_thigh_joint");
+    joint_state.name.push_back("FR_calf_joint");
 
+    joint_state.name.push_back("FL_hip_joint");
+    joint_state.name.push_back("FL_thigh_joint");
+    joint_state.name.push_back("FL_calf_joint");
 
+    joint_state.name.push_back("RR_hip_joint");
+    joint_state.name.push_back("RR_thigh_joint");
+    joint_state.name.push_back("RR_calf_joint");
+
+    joint_state.name.push_back("FL_hip_joint");
+    joint_state.name.push_back("FL_thigh_joint");
+    joint_state.name.push_back("FL_calf_joint");
+    
+    for(int i=0; i<12; i++)
+    {
+        joint_state.position.push_back(high_state.motorState[i].q);
+        joint_state.velocity.push_back(high_state.motorState[i].dq);
+        joint_state.effort.push_back(high_state.motorState[i].tauEst);
+    }
+
+    pub_joint->publish(joint_state);
     pub_imu->publish(imu);
-
     pub_high->publish(high_state_ros);
 }
 
@@ -94,6 +119,7 @@ int main(int argc, char **argv)
     high_udp->InitCmdData(high_cmd);
     pub_high = node->create_publisher<ros2_unitree_legged_msgs::msg::HighState>("/B1/high_state", 1);
     pub_imu  = node->create_publisher<sensor_msgs::msg::Imu>("/B1/imu", 1);
+    pub_joint  = node->create_publisher<sensor_msgs::msg::JointState>("/B1/joint_state", 1);
     
     sub_high = node->create_subscription<ros2_unitree_legged_msgs::msg::HighCmd>("/B1/high_cmd", 1, highCmdCallback);
 
