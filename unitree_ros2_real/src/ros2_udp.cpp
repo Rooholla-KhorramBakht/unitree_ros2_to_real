@@ -68,9 +68,9 @@ void timerCallback()
     joint_state.name.push_back("RR_thigh_joint");
     joint_state.name.push_back("RR_calf_joint");
 
-    joint_state.name.push_back("FL_hip_joint");
-    joint_state.name.push_back("FL_thigh_joint");
-    joint_state.name.push_back("FL_calf_joint");
+    joint_state.name.push_back("RL_hip_joint");
+    joint_state.name.push_back("RL_thigh_joint");
+    joint_state.name.push_back("RL_calf_joint");
     
     for(int i=0; i<12; i++)
     {
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
     high_udp->InitCmdData(high_cmd);
     pub_high = node->create_publisher<ros2_unitree_legged_msgs::msg::HighState>("/B1/high_state", 1);
     pub_imu  = node->create_publisher<sensor_msgs::msg::Imu>("/B1/imu", 1);
-    pub_joint  = node->create_publisher<sensor_msgs::msg::JointState>("/B1/joint_state", 1);
+    pub_joint  = node->create_publisher<sensor_msgs::msg::JointState>("/B1/joint_states", 1);
     
     sub_high = node->create_subscription<ros2_unitree_legged_msgs::msg::HighCmd>("/B1/high_cmd", 1, highCmdCallback);
 
